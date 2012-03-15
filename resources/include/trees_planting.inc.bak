@@ -1,0 +1,82 @@
+#macro plantTrees(
+        plantingArea, // where to plant trees
+        trees, // array of trees to plant
+        ratios, // in what ratios the trees should be planted
+        treeCellX, // tree cell size in X direction
+        treeCellZ, // tree cell size in Z direction
+        scaleFactor,
+        maxTiltAngle
+        )
+
+#local randomX = seed(100);
+#local randomZ = seed(200);
+#local randomHeading = seed(300);
+#local randomScale = seed(400);
+#local randomTilt = seed(500);
+#local randomTreeType = seed(600);
+
+#local numTreeTypes = dimension_size(trees, 1);
+// thresholds for tree types
+#local thresholds = array[numTreeTypes];
+//
+// populate thresholds array
+//
+// calculate the sum of ratios array
+#local i = 0;
+#local ratiosSum = 0;
+#while (i<numTreeTypes)
+        #local ratiosSum = ratiosSum + ratios[i];
+        #local i = i + 1;
+#end // while
+// populate thresholds array
+#local thresholds[0] = ratios[0]/ratiosSum;
+#local i = 1;
+#while (i<numTreeTypes)
+        #local thresholds[i] = thresholds[i-1] + ratios[i]/ratiosSum;
+        #local i = i + 1;
+#end // while
+
+
+#local minExtent = min_extent(plantingArea);
+#local maxExtent = max_extent(plantingArea);
+#local numX = ceil( (maxExtent.x - minExtent.x)/treeCellX );
+#local numZ = ceil( (maxExtent.z - minExtent.z)/treeCellZ );
+
+union{
+#local ix = 0;
+#while (ix < numX)
+        #local iz = 0;
+        #while (iz < numZ)
+                // cell center
+                #local centerX = minExtent.x+treeCellX*(ix+0.5);
+                #local centerZ = minExtent.z+treeCellZ*(iz+0.5);
+                #local hitNormal = <0, 0, 0>;
+                #local hitPoint = trace(plantingArea, <centerX, maxExtent.z+1, centerZ>, <0,-1,0>, hitNormal);
+                #if (hitNormal.y!=0|hitNormal.x!=0|hitNormal.z!=0)
+                        // find tree type to be planted
+                        #local treeTypeValue = rand(randomTreeType);
+                        #local treeTypeIndex = 0;
+                        #if (treeTypeValue > thresholds[0])
+                                #local i = 1;
+                                #while (i<numTreeTypes)
+                                        #if (thresholds[i-1]<treeTypeValue & treeTypeValue<=thresholds[i])
+                                                 #local treeTypeIndex = i;
+                                                 #local i = numTreeTypes;
+                                        #end
+                                        #local i = i + 1;
+                                #end
+                        #end
+                        object{
+                                trees[treeTypeIndex]
+                                rotate<maxTiltAngle*2*(0.5-rand(randomTilt)),0,0>
+                                rotate<0,360*rand(randomHeading),0>
+                                scale 1 + scaleFactor*rand(randomScale)
+                                translate <centerX+0.3*treeCellX*2*(-0.5+rand(randomX)), 0, centerZ+0.3*treeCellZ*2*(-0.5+rand(randomZ))>
+                        }
+                #end
+                #local iz = iz + 1;
+        #end
+        #local ix = ix + 1;
+#end
+} // union
+#end
